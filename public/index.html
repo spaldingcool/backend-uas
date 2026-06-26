@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Economy</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">Smart Economy</div>
+    <div class="login-sub">Platform UMKM Digital</div>
+    <div class="login-tab">
+      <button class="active" onclick="setLoginTab('login')">Masuk</button>
+      <button onclick="setLoginTab('daftar')">Daftar</button>
+    </div>
+    <div id="loginAlert"></div>
+
+    <div id="loginForm">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Email</label>
+        <input type="email" id="lEmail" placeholder="anda@email.com" />
+      </div>
+      <div class="form-group" style="margin-bottom:18px">
+        <label>Password</label>
+        <input type="password" id="lPass" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Masuk →</button>
+    </div>
+
+    <div id="daftarForm" style="display:none">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Nama Lengkap</label>
+        <input type="text" id="rNama" placeholder="Nama anda" />
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Email</label>
+        <input type="email" id="rEmail" placeholder="anda@email.com" />
+      </div>
+      <div class="form-group" style="margin-bottom:18px">
+        <label>Password</label>
+        <input type="password" id="rPass" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="doDaftar()">Daftar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="layout" id="dashPage" style="display:none">
+  <aside class="sidebar">
+    <div class="logo">Smart<span>Eco</span></div>
+    <button class="nav-btn active" id="navDashboard" onclick="goPage('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
+    <button class="nav-btn" onclick="goPage('usaha')"><span class="nav-icon">🏪</span> Usaha</button>
+    <button class="nav-btn" onclick="goPage('produk')"><span class="nav-icon">📦</span> Produk</button>
+    <button class="nav-btn" onclick="goPage('transaksi')"><span class="nav-icon">💳</span> Transaksi</button>
+    <button class="nav-btn" id="navPengguna" onclick="goPage('pengguna')"><span class="nav-icon">👥</span> Pengguna</button>
+    <div style="flex:1"></div>
+    <button class="nav-btn" onclick="doLogout()" style="color:var(--red)"><span class="nav-icon">↩</span> Keluar</button>
+  </aside>
+
+  <main class="main">
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub" id="greetUser">Selamat datang!</div>
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">Total Pengguna</div><div class="stat-value" id="s-pengguna">—</div></div>
+        <div class="stat-card"><div class="stat-label">Usaha Aktif</div><div class="stat-value" id="s-usaha">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Transaksi</div><div class="stat-value" id="s-trx">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Nilai</div><div class="stat-value" id="s-nilai">—</div><div class="stat-sub">transaksi selesai</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Transaksi Terbaru</div></div>
+        <table>
+          <thead><tr><th>ID</th><th>Produk</th><th>Pembeli</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody id="recentTrx"><tr class="empty-row"><td colspan="5">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USAHA PAGE -->
+    <div class="page" id="page-usaha">
+      <div class="page-title">Manajemen Usaha</div>
+      <div class="page-sub">Daftarkan dan kelola usaha UMKM</div>
+      <div class="card" id="formTambahUsaha" style="margin-bottom:20px; padding:20px">
+        <div class="card-title" style="margin-bottom:16px">Tambah Usaha</div>
+        <div id="usahaAlert"></div>
+        <div class="form-grid">
+          <div class="form-group"><label>User ID</label><input type="number" id="u-userId" placeholder="1" min="1" /></div>
+          <div class="form-group"><label>Kategori ID</label><input type="number" id="u-katId" placeholder="1" min="1" /></div>
+          <div class="form-group"><label>Nama Usaha</label><input type="text" id="u-nama" placeholder="Nama usaha" /></div>
+          <div class="form-group"><label>Kota</label><input type="text" id="u-kota" placeholder="Medan" /></div>
+          <div class="form-group"><label>Omzet/Bulan (Rp)</label><input type="number" id="u-omzet" placeholder="0" min="0" /></div>
+          <div class="form-group"><label>Deskripsi</label><input type="text" id="u-desk" placeholder="Opsional" /></div>
+        </div>
+        <button id="btn-tambah-usaha" class="btn btn-primary" onclick="tambahUsaha()">Tambah Usaha</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Daftar Usaha</div>
+          <button class="btn btn-ghost" onclick="loadUsaha()">Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Nama</th><th>Kategori</th><th>Kota</th><th>Omzet/Bulan</th><th>Omzet Total</th><th>Status</th><th>Ubah Status</th></tr></thead>
+          <tbody id="usahaTable"><tr class="empty-row"><td colspan="8">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PRODUK PAGE -->
+    <div class="page" id="page-produk">
+      <div class="page-title">Manajemen Produk</div>
+      <div class="page-sub">Tambah dan kelola produk dari usaha</div>
+      <div class="card" id="formTambahProduk" style="margin-bottom:20px; padding:20px">
+        <div class="card-title" style="margin-bottom:16px">Tambah Produk</div>
+        <div id="produkAlert"></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Usaha ID</label><input type="number" id="p-usahaId" placeholder="1" min="1" /></div>
+          <div class="form-group"><label>Nama Produk</label><input type="text" id="p-nama" placeholder="Nama produk" /></div>
+          <div class="form-group"><label>Harga (Rp)</label><input type="number" id="p-harga" placeholder="10000" min="1" /></div>
+          <div class="form-group"><label>Stok</label><input type="number" id="p-stok" placeholder="100" min="0" /></div>
+          <div class="form-group"><label>Satuan</label>
+            <select id="p-satuan">
+              <option value="pcs">pcs</option>
+              <option value="kg">kg</option>
+              <option value="liter">liter</option>
+              <option value="lusin">lusin</option>
+            </select>
+          </div>
+        </div>
+        <button id="btn-tambah-produk" class="btn btn-primary" onclick="tambahProduk()">Tambah Produk</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Daftar Produk</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="filterUsahaId" placeholder="Filter Usaha ID" style="width:130px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-family:var(--mono);font-size:0.8rem" />
+            <button class="btn btn-ghost" onclick="loadProduk()">Filter</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Nama Produk</th><th>Usaha</th><th>Harga</th><th>Stok</th><th>Aksi</th></tr></thead>
+          <tbody id="produkTable"><tr class="empty-row"><td colspan="6">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TRANSAKSI PAGE -->
+    <div class="page" id="page-transaksi">
+      <div class="page-title">Transaksi</div>
+      <div class="page-sub">Buat dan kelola transaksi</div>
+      <div class="card" style="margin-bottom:20px; padding:20px">
+        <div class="card-title" style="margin-bottom:16px">Buat Transaksi</div>
+        <div id="trxAlert"></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Produk ID</label><input type="number" id="t-produkId" placeholder="1" min="1" /></div>
+          <div class="form-group"><label>Pembeli ID</label><input type="number" id="t-pembeliId" placeholder="1" min="1" /></div>
+          <div class="form-group"><label>Jumlah</label><input type="number" id="t-jumlah" placeholder="1" min="1" /></div>
+          <div class="form-group"><label>Metode Bayar</label>
+            <select id="t-metode">
+              <option value="dompet_digital">Dompet Digital</option>
+              <option value="transfer">Transfer Bank</option>
+              <option value="cod">COD</option>
+            </select>
+          </div>
+        </div>
+        <button id="btn-buat-transaksi" class="btn btn-primary" onclick="buatTransaksi()">Buat Transaksi</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Daftar Transaksi</div>
+          <button class="btn btn-ghost" onclick="loadTransaksi()">Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Produk</th><th>Pembeli</th><th>Total</th><th>Metode</th><th>Status</th><th>Ubah Status</th></tr></thead>
+          <tbody id="trxTable"><tr class="empty-row"><td colspan="7">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PENGGUNA PAGE -->
+    <div class="page" id="page-pengguna">
+      <div class="page-title">Pengguna</div>
+      <div class="page-sub">Daftar seluruh pengguna terdaftar</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Semua Pengguna</div>
+          <button class="btn btn-ghost" onclick="loadPengguna()">Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Nama</th><th>Email</th><th>Peran</th><th>Bergabung</th></tr></thead>
+          <tbody id="penggunaTable"><tr class="empty-row"><td colspan="5">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- JS: load order matters — utils first, then modules, then auth/nav last -->
+<script src="js/utils.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/usaha.js"></script>
+<script src="js/produk.js"></script>
+<script src="js/transaksi.js"></script>
+<script src="js/pengguna.js"></script>
+<script src="js/navigation.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>
