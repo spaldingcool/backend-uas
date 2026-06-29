@@ -1,6 +1,10 @@
 import express from 'express';
 import mysql   from 'mysql2/promise';
 import crypto  from 'crypto';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ══════════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -78,7 +82,7 @@ function authMiddleware(req, res, next) {
   const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
   const user   = verifyToken(token);
   if (!user) return send(res, false, null, 'Token tidak valid atau tidak ada. Silakan login.', 401);
-  req.user = user;   // attach user to request
+  req.user = user;
   next();
 }
 
@@ -194,18 +198,14 @@ const TransaksiModel = {
 // CONTROLLERS (business logic layer)
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── PenggunaController ────────────────────────────────────────────────────────
 const PenggunaController = {
-
   daftar: wrap(async (req, res) => {
     const p = input(req);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
       return send(res, false, null, 'Format email tidak valid.', 422);
-
     const email = p.email.toLowerCase().trim();
     const [cek] = await UserModel.findByEmail(email);
     if (cek.length) return send(res, false, null, 'Email sudah terdaftar.', 409);
-
     const [r] = await UserModel.create(p.nama.trim(), email, sha256(p.password), p.peran ?? 'konsumen');
     send(res, true, { id: r.insertId }, 'Pengguna berhasil didaftarkan.', 201);
   }),
@@ -216,7 +216,6 @@ const PenggunaController = {
     const [rows] = await UserModel.findByEmail(email);
     if (!rows.length || rows[0].password !== sha256(p.password))
       return send(res, false, null, 'Email atau password salah.', 401);
-
     const user  = rows[0];
     const token = signToken({ id: user.id, nama: user.nama, peran: user.peran });
     send(res, true, { id: user.id, nama: user.nama, peran: user.peran, token }, 'Login berhasil.');
@@ -234,13 +233,10 @@ const PenggunaController = {
   }),
 };
 
-// ── UsahaController ───────────────────────────────────────────────────────────
 const UsahaController = {
-
   list: wrap(async (req, res) => {
     const p = input(req);
     const where = [], params = [];
-    // pelaku_usaha hanya lihat miliknya sendiri
     if (req.user.peran === 'pelaku_usaha') {
       where.push('u.user_id = ?'); params.push(req.user.id);
     } else {
@@ -261,7 +257,6 @@ const UsahaController = {
 
   tambah: wrap(async (req, res) => {
     const p = input(req);
-    // pelaku_usaha otomatis pakai user_id sendiri
     const userId = req.user.peran === 'pelaku_usaha' ? req.user.id : Number(p.user_id);
     const [r] = await UsahaModel.create(
       userId, Number(p.kategori_id), p.nama_usaha.trim(),
@@ -279,9 +274,7 @@ const UsahaController = {
   }),
 };
 
-// ── ProdukController ──────────────────────────────────────────────────────────
 const ProdukController = {
-
   list: wrap(async (req, res) => {
     const p = input(req);
     const where = [], params = [];
@@ -324,17 +317,13 @@ const ProdukController = {
   }),
 };
 
-// ── TransaksiController ───────────────────────────────────────────────────────
 const TransaksiController = {
-
   list: wrap(async (req, res) => {
     const p = input(req);
     const where = [], params = [];
-    // konsumen hanya lihat transaksi sendiri
     if (req.user.peran === 'konsumen') {
       where.push('t.pembeli_id = ?'); params.push(req.user.id);
     } else if (req.user.peran === 'pelaku_usaha') {
-      // pelaku_usaha lihat transaksi di usahanya
       where.push('u2.user_id = ?'); params.push(req.user.id);
     } else {
       if (p.pembeli_id) { where.push('t.pembeli_id = ?'); params.push(Number(p.pembeli_id)); }
@@ -350,16 +339,11 @@ const TransaksiController = {
     const jumlah = Number(p.jumlah);
     if (!Number.isInteger(jumlah) || jumlah < 1)
       return send(res, false, null, 'Jumlah harus berupa bilangan bulat positif.', 422);
-
-    // konsumen otomatis pakai id sendiri
     const pembeliId = req.user.peran === 'konsumen' ? req.user.id : Number(p.pembeli_id);
-
     const [produkRows] = await ProdukModel.findById(Number(p.produk_id));
     if (!produkRows.length) return send(res, false, null, 'Produk tidak ditemukan.', 404);
-
     const { harga, stok } = produkRows[0];
     if (stok < jumlah) return send(res, false, null, 'Stok tidak mencukupi.', 409);
-
     const total = parseFloat(harga) * jumlah;
     const conn  = await pool.getConnection();
     try {
@@ -386,9 +370,7 @@ const TransaksiController = {
   }),
 };
 
-// ── AnalitikController ────────────────────────────────────────────────────────
 const AnalitikController = {
-
   ringkasan: wrap(async (req, res) => {
     const [rows] = await pool.execute(`
       SELECT
@@ -432,84 +414,69 @@ const AnalitikController = {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ROUTES (View/Router layer — RESTful)
+// ROUTES
 // ══════════════════════════════════════════════════════════════════════════════
 
 const router = express.Router();
 
-// ── Public routes (no auth needed)
+// Public routes
 router.post('/auth/daftar',  validate(['nama','email','password']), PenggunaController.daftar);
 router.post('/auth/login',   validate(['email','password']),        PenggunaController.login);
+router.post('/daftar_pengguna', validate(['nama','email','password']), PenggunaController.daftar);
+router.post('/login',        validate(['email','password']),        PenggunaController.login);
 
-// ── Protected routes (require valid token)
+// Protected routes
 router.use(authMiddleware);
 
-// Pengguna
-router.get('/pengguna',         authorize('admin'),                          PenggunaController.list);
-router.get('/pengguna/profile',                                              PenggunaController.profile);
+router.get('/pengguna',           authorize('admin'),                           PenggunaController.list);
+router.get('/pengguna/profile',                                                 PenggunaController.profile);
+router.get('/list_pengguna',      authorize('admin'),                           PenggunaController.list);
 
-// Usaha
-router.get('/usaha',                                                         UsahaController.list);
-router.get('/usaha/detail',                                                  UsahaController.detail);
-router.post('/usaha',           validate(['kategori_id','nama_usaha']),
-                                authorize('admin','pelaku_usaha'),           UsahaController.tambah);
-router.put('/usaha/status',     validate(['id','status']),
-                                authorize('admin'),                          UsahaController.updateStatus);
-
-// Produk
-router.get('/produk',                                                        ProdukController.list);
-router.post('/produk',          validate(['usaha_id','nama_produk','harga']),
-                                authorize('admin','pelaku_usaha'),           ProdukController.tambah);
-router.put('/produk',           validate(['id']),
-                                authorize('admin','pelaku_usaha'),           ProdukController.update);
-router.delete('/produk',        validate(['id']),
-                                authorize('admin'),                          ProdukController.hapus);
-
-// Transaksi
-router.get('/transaksi',                                                     TransaksiController.list);
-router.post('/transaksi',       validate(['produk_id','jumlah']),
-                                authorize('admin','pelaku_usaha','konsumen'),TransaksiController.buat);
-router.put('/transaksi/status', validate(['id','status']),
-                                authorize('admin'),                          TransaksiController.updateStatus);
-
-// Analitik
-router.get('/analitik/ringkasan',  authorize('admin'),                       AnalitikController.ringkasan);
-router.get('/analitik/harian',     authorize('admin'),                       AnalitikController.harian);
-router.get('/analitik/omzet',      authorize('admin','pelaku_usaha'),        AnalitikController.omzetUsaha);
-
-// ── Legacy route aliases (agar frontend lama tetap jalan)
-router.post('/daftar_pengguna',  validate(['nama','email','password']),      PenggunaController.daftar);
-router.post('/login',            validate(['email','password']),             PenggunaController.login);
-router.get('/list_pengguna',     authorize('admin'),                         PenggunaController.list);
-router.get('/list_usaha',                                                    UsahaController.list);
-router.get('/detail_usaha',                                                  UsahaController.detail);
-router.post('/tambah_usaha',     validate(['kategori_id','nama_usaha']),
-                                 authorize('admin','pelaku_usaha'),          UsahaController.tambah);
-router.put('/update_status_usaha', validate(['id','status']),
-                                 authorize('admin'),                         UsahaController.updateStatus);
+router.get('/usaha',                                                            UsahaController.list);
+router.get('/usaha/detail',                                                     UsahaController.detail);
+router.post('/usaha',             validate(['kategori_id','nama_usaha']),
+                                  authorize('admin','pelaku_usaha'),            UsahaController.tambah);
+router.put('/usaha/status',       validate(['id','status']),
+                                  authorize('admin'),                           UsahaController.updateStatus);
+router.get('/list_usaha',                                                       UsahaController.list);
+router.get('/detail_usaha',                                                     UsahaController.detail);
+router.post('/tambah_usaha',      validate(['kategori_id','nama_usaha']),
+                                  authorize('admin','pelaku_usaha'),            UsahaController.tambah);
 router.all('/update_status_usaha', validate(['id','status']),
-                                 authorize('admin'),                         UsahaController.updateStatus);
-router.get('/list_produk',                                                   ProdukController.list);
-router.post('/tambah_produk',    validate(['usaha_id','nama_produk','harga']),
-                                 authorize('admin','pelaku_usaha'),          ProdukController.tambah);
-router.put('/update_produk',     validate(['id']),
-                                 authorize('admin','pelaku_usaha'),          ProdukController.update);
-router.all('/update_produk',     validate(['id']),
-                                 authorize('admin','pelaku_usaha'),          ProdukController.update);
-router.delete('/hapus_produk',   validate(['id']),
-                                 authorize('admin'),                         ProdukController.hapus);
-router.all('/hapus_produk',      validate(['id']),
-                                 authorize('admin'),                         ProdukController.hapus);
-router.get('/list_transaksi',                                                TransaksiController.list);
-router.post('/buat_transaksi',   validate(['produk_id','jumlah']),
-                                 authorize('admin','pelaku_usaha','konsumen'),TransaksiController.buat);
-router.put('/update_status_trx', validate(['id','status']),
-                                 authorize('admin'),                         TransaksiController.updateStatus);
-router.all('/update_status_trx', validate(['id','status']),
-                                 authorize('admin'),                         TransaksiController.updateStatus);
-router.get('/ringkasan',         authorize('admin'),                         AnalitikController.ringkasan);
-router.get('/analitik_harian',   authorize('admin'),                         AnalitikController.harian);
-router.get('/omzet_usaha',       authorize('admin','pelaku_usaha'),          AnalitikController.omzetUsaha);
+                                  authorize('admin'),                           UsahaController.updateStatus);
+
+router.get('/produk',                                                           ProdukController.list);
+router.post('/produk',            validate(['usaha_id','nama_produk','harga']),
+                                  authorize('admin','pelaku_usaha'),            ProdukController.tambah);
+router.put('/produk',             validate(['id']),
+                                  authorize('admin','pelaku_usaha'),            ProdukController.update);
+router.delete('/produk',          validate(['id']),
+                                  authorize('admin'),                           ProdukController.hapus);
+router.get('/list_produk',                                                      ProdukController.list);
+router.post('/tambah_produk',     validate(['usaha_id','nama_produk','harga']),
+                                  authorize('admin','pelaku_usaha'),            ProdukController.tambah);
+router.all('/update_produk',      validate(['id']),
+                                  authorize('admin','pelaku_usaha'),            ProdukController.update);
+router.all('/hapus_produk',       validate(['id']),
+                                  authorize('admin'),                           ProdukController.hapus);
+
+router.get('/transaksi',                                                        TransaksiController.list);
+router.post('/transaksi',         validate(['produk_id','jumlah']),
+                                  authorize('admin','pelaku_usaha','konsumen'), TransaksiController.buat);
+router.put('/transaksi/status',   validate(['id','status']),
+                                  authorize('admin'),                           TransaksiController.updateStatus);
+router.get('/list_transaksi',                                                   TransaksiController.list);
+router.post('/buat_transaksi',    validate(['produk_id','jumlah']),
+                                  authorize('admin','pelaku_usaha','konsumen'), TransaksiController.buat);
+router.all('/update_status_trx',  validate(['id','status']),
+                                  authorize('admin'),                           TransaksiController.updateStatus);
+
+router.get('/analitik/ringkasan', authorize('admin'),                           AnalitikController.ringkasan);
+router.get('/analitik/harian',    authorize('admin'),                           AnalitikController.harian);
+router.get('/analitik/omzet',     authorize('admin','pelaku_usaha'),            AnalitikController.omzetUsaha);
+router.get('/ringkasan',          authorize('admin'),                           AnalitikController.ringkasan);
+router.get('/analitik_harian',    authorize('admin'),                           AnalitikController.harian);
+router.get('/omzet_usaha',        authorize('admin','pelaku_usaha'),            AnalitikController.omzetUsaha);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // APP BOOTSTRAP
@@ -517,18 +484,22 @@ router.get('/omzet_usaha',       authorize('admin','pelaku_usaha'),          Ana
 
 const app = express();
 
-// Global middleware
 app.use(loggerMiddleware);
 app.use(corsMiddleware);
 app.use(rateLimiter(200, 60_000));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api', router);
-app.use(express.static('public'));
+// Static files — absolute path agar jalan di Vercel
+app.use(express.static(path.join(__dirname, 'public')));
 
-// 404 handler
-app.use((req, res) => send(res, false, null, 'Endpoint tidak ditemukan.', 404));
+// API routes
+app.use('/api', router);
+
+// Serve index.html untuk semua route non-API
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Global error handler
 app.use((err, req, res, _next) => {
@@ -536,9 +507,10 @@ app.use((err, req, res, _next) => {
   send(res, false, null, 'Server error: ' + err.message, 500);
 });
 
-const PORT = process.env.PORT || 3000;
+// Jalankan server hanya di lokal
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log(`Smart Economy API → http://localhost:${PORT}`));
 }
+
 export default app;
